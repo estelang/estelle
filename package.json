@@ -1,0 +1,22 @@
+{
+	"name": "estelle",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "bunx --bun vite",
+		"build": "tsc && vite build",
+		"preview": "vite preview",
+		"compiler:run": "bun ./src/compiler/cli.ts",
+		"compiler:build": "bun build --compile --minify --sourcemap --bytecode ./src/compiler/cli.ts --outfile ./dist/estelle",
+		"docs:dev": "vitepress dev docs",
+		"docs:build": "vitepress build docs",
+		"docs:preview": "vitepress preview docs"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.3.13",
+		"typescript": "~6.0.2",
+		"vite": "^8.0.10",
+		"vitepress": "^2.0.0-alpha.17"
+	}
+}
