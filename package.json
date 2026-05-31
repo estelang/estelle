@@ -8,7 +8,7 @@
 		"build": "tsc && vite build",
 		"preview": "vite preview",
 		"compiler:run": "bun ./src/compiler/cli.ts",
-		"compiler:build": "bun build --compile --minify --sourcemap --bytecode ./src/compiler/cli.ts --outfile ./dist/estelle",
+		"compiler:build": "bun build --compile --minify --bytecode ./src/compiler/cli.ts --outfile ./dist/estelle",
 		"docs:dev": "vitepress dev docs",
 		"docs:build": "vitepress build docs",
 		"docs:preview": "vitepress preview docs"
