@@ -46,9 +46,9 @@ export function findOutputBlockEnd(src: string, start: number): number {
 	let i = start;
 	while (i < src.length) {
 		const c = src[i];
-		// {| is wikitext table open — don't count as nested brace
+		// {| is wikitext table open so don't count as nested brace
 		if (c === "{" && (src[i + 1] ?? "") !== "|") depth++;
-		// |} is wikitext table close — don't count as closing brace
+		// |}
 		else if (c === "}" && src[i - 1] !== "|") {
 			if (--depth === 0) return i;
 		}

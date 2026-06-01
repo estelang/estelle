@@ -821,7 +821,7 @@ describe("error reporting", () => {
 });
 
 describe("spec examples", () => {
-	test("example 1 — simple greeting", () => {
+	test("example 1 - simple greeting", () => {
 		const lua = compile(`
 fnc main {
     name = arg("name", "World")
@@ -833,7 +833,7 @@ fnc main {
 		expect(lua).toContain('table.concat(_out, "\\n")');
 	});
 
-	test("example 2 — list formatter", () => {
+	test("example 2 - list formatter", () => {
 		const lua = compile(`
 fnc main {
     raw   = arg("items", "")
@@ -863,7 +863,7 @@ fnc main {
 		expect(lua).toContain('_out[#_out + 1] = "* " .. tostring(clean)');
 	});
 
-	test("example 3 — page existence check with error handling", () => {
+	test("example 3 - page existence check with error handling", () => {
 		const lua = compile(`
 fnc main {
     name = arg("page")
@@ -894,7 +894,7 @@ fnc main {
 		expect(lua).toContain("DEFAULTSORT:");
 	});
 
-	test("example 4 — import, pub invoke from main", () => {
+	test("example 4 - import, pub invoke from main", () => {
 		const lua = compile(`
 import "Module:StringUtils" as str
 
@@ -909,7 +909,7 @@ pub fnc renderCard {
 
     output {
         <div class="user-card">
-        <b>\${name}</b> — \${title}<br>
+        <b>\${name}</b> - \${title}<br>
         Edits: \${count}<br>
         </div>
     }
@@ -924,7 +924,7 @@ fnc main {
 		expect(lua).toContain("local function formatName(raw)");
 	});
 
-	test("example 5 — wikitext table building", () => {
+	test("example 5 - wikitext table building", () => {
 		const lua = compile(`
 fnc main {
     headers = ["Name", "Role", "Edits"]
