@@ -15,6 +15,7 @@ interface CompileCommand {
 	readonly outputPath: string;
 	readonly optimize: boolean;
 	readonly embed: boolean;
+	readonly minify: boolean;
 }
 
 interface HelpCommand {
@@ -30,11 +31,12 @@ type CliCommand = CompileCommand | HelpCommand | ParseError;
 
 const USAGE = [
 	"Usage:",
-	"  estelle compile <input.este> [output.lua] [--optimize] [--embed]",
-	"  estelle compile <input.este> --out <output.lua> [--optimize] [--embed]",
+	"  estelle compile <input.este> [output.lua] [--optimize] [--minify] [--embed]",
+	"  estelle compile <input.este> --out <output.lua> [--optimize] [--minify] [--embed]",
 	"",
 	"Flags:",
 	"  --optimize    Enable optimization passes",
+	"  --minify      Minify Lua output (runs before --embed)",
 	"  --embed       Embed original Estelle source as Lua comment at top of output",
 	"  --out, -o     Output Lua file path",
 	"  --help, -h    Show this help",
@@ -74,6 +76,7 @@ export function parseCliArgs(argv: readonly string[], cwd: string): CliCommand {
 	let outputArg: string | null = null;
 	let optimize = false;
 	let embed = false;
+	let minify = false;
 
 	for (let i = 1; i < argv.length; i++) {
 		const raw = argv[i]!;
@@ -85,6 +88,10 @@ export function parseCliArgs(argv: readonly string[], cwd: string): CliCommand {
 		}
 		if (token === "--embed") {
 			embed = true;
+			continue;
+		}
+		if (token === "--minify") {
+			minify = true;
 			continue;
 		}
 		if (token === "--out" || token === "-o") {
@@ -119,7 +126,14 @@ export function parseCliArgs(argv: readonly string[], cwd: string): CliCommand {
 
 	const inputPath = resolve(cwd, inputArg);
 	const outputPath = resolve(cwd, outputArg ?? defaultOutputPath(inputPath));
-	return { kind: "compile", inputPath, outputPath, optimize, embed };
+	return {
+		kind: "compile",
+		inputPath,
+		outputPath,
+		optimize,
+		embed,
+		minify,
+	};
 }
 
 function formatDiagnostic(diag: {
@@ -160,6 +174,7 @@ export async function runCli(
 	const result = transpile(source, {
 		optimize: cmd.optimize,
 		embed: cmd.embed,
+		minify: cmd.minify,
 	});
 	for (const diag of result.diagnostics) io.stderr(formatDiagnostic(diag));
 	if (result.lua === null || hasErrors(result.diagnostics)) return 1;

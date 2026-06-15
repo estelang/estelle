@@ -27,12 +27,14 @@ This writes `hello.lua` by default.
 
 ```sh
 estelle compile hello.este --optimize
+estelle compile hello.este --minify
 estelle compile hello.este --embed
 estelle compile hello.este --out Module:Hello.lua
 estelle compile hello.este -o Module:Hello.lua
 ```
 
 - `--optimize`: run optimizer passes.
+- `--minify`: minify Lua output.
 - `--embed`: embed source in a Lua block comment header.
 - `--out` / `-o`: explicit output path.
 

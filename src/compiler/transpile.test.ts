@@ -953,3 +953,24 @@ fnc main {
 		expect(lua).toContain("row.name");
 	});
 });
+
+describe("minify", () => {
+	test("shrinks Lua output", () => {
+		const src = `fnc main { output "Hello, world!" }`;
+		const plain = transpile(src, { optimize: true }).lua!;
+		const minified = transpile(src, { optimize: true, minify: true }).lua!;
+		expect(minified.length).toBeLessThan(plain.length);
+	});
+
+	test("runs before embed so source comment is preserved", () => {
+		const src = `fnc main { output "Hi" }`;
+		const out = transpile(src, {
+			optimize: true,
+			minify: true,
+			embed: true,
+		}).lua!;
+		expect(out.startsWith("--[[ESTESTART\n")).toBe(true);
+		expect(out).toContain("ESTEEND]]\n");
+		expect(out).not.toMatch(/\nlocal p = \{\}/);
+	});
+});
