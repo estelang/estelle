@@ -42,12 +42,24 @@ function countBuiltinCalls(stmts: readonly Stmt[]): Map<string, number> {
 			case "Lambda":
 				visitExpr(expr.body);
 				return;
+			case "Coerce":
+				visitExpr(expr.expr);
+				return;
 		}
 	};
 
 	const visitStmt = (stmt: Stmt): void => {
 		switch (stmt.kind) {
 			case "Assign":
+				if (stmt.target.kind === "Index") {
+					visitExpr(stmt.target.object);
+					visitExpr(stmt.target.index);
+				} else if (stmt.target.kind === "Member") {
+					visitExpr(stmt.target.object);
+				}
+				visitExpr(stmt.value);
+				return;
+			case "CompoundAssign":
 				if (stmt.target.kind === "Index") {
 					visitExpr(stmt.target.object);
 					visitExpr(stmt.target.index);
@@ -74,6 +86,11 @@ function countBuiltinCalls(stmts: readonly Stmt[]): Map<string, number> {
 				return;
 			case "ForIn":
 				visitExpr(stmt.iterable);
+				stmt.body.forEach(visitStmt);
+				return;
+			case "ForRange":
+				visitExpr(stmt.start);
+				visitExpr(stmt.end);
 				stmt.body.forEach(visitStmt);
 				return;
 			case "While":

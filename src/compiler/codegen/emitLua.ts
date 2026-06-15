@@ -3,7 +3,7 @@ import type {
 	FncDecl,
 	Stmt,
 	Expr,
-	EstelleType,
+	AssignTarget,
 } from "../ast/index.ts";
 import { buildGlobalAliases } from "./aliasAnalysis.ts";
 import {
@@ -32,25 +32,6 @@ function flushPending(ctx: EmitCtx, lines: string[]): string[] {
 	return [...pending, ...lines];
 }
 
-function applyCoerce(expr: string, type: EstelleType | null): string {
-	if (type === "num") return `tonumber(${expr})`;
-	return expr;
-}
-
-function emitTarget(
-	target: Extract<Stmt, { kind: "Assign" }>["target"],
-	ctx: EmitCtx,
-): string {
-	switch (target.kind) {
-		case "Var":
-			return target.name;
-		case "Member":
-			return `${emitExpr(target.object, ctx)}.${target.property}`;
-		case "Index":
-			return `${emitExpr(target.object, ctx)}[${emitExpr(target.index, ctx)}]`;
-	}
-}
-
 function emitAssignStmt(
 	s: Extract<Stmt, { kind: "Assign" }>,
 	ctx: EmitCtx,
@@ -61,23 +42,41 @@ function emitAssignStmt(
 		s.target.kind === "Var" && !ctx.locals.has(s.target.name);
 	if (s.target.kind === "Var") {
 		ctx.locals.add(s.target.name);
-		ctx.varKinds.set(
-			s.target.name,
-			s.coerce ? mapTypeToKind(s.coerce) : inferExprKind(s.value, ctx),
-		);
+		ctx.varKinds.set(s.target.name, inferExprKind(s.value, ctx));
 	}
-	if (s.coerce === "bool") {
-		ctx.coerceTempId += 1;
-		const temp = `__estelle_coerce_${ctx.coerceTempId}`;
-		if (s.target.kind === "Var") ctx.varKinds.set(s.target.name, "bool");
-		return [
-			`${ctx.indent}local ${temp} = ${expr}`,
-			`${ctx.indent}${localPrefix ? "local " : ""}${target} = (${temp} == "true" or ${temp} == "1")`,
-		];
+	return [`${ctx.indent}${localPrefix ? "local " : ""}${target} = ${expr}`];
+}
+
+function emitCompoundAssignStmt(
+	s: Extract<Stmt, { kind: "CompoundAssign" }>,
+	ctx: EmitCtx,
+): string[] {
+	const rhs = emitExpr(s.value, ctx);
+	const target = emitTarget(s.target, ctx);
+	const lhs = emitTarget(s.target, ctx);
+	const varKind =
+		s.target.kind === "Var" ? ctx.varKinds.get(s.target.name) : undefined;
+	const rhsKind = inferExprKind(s.value, ctx);
+	const op =
+		varKind === "num" || (varKind === undefined && rhsKind === "num")
+			? "+"
+			: "..";
+	if (s.target.kind === "Var" && !ctx.locals.has(s.target.name)) {
+		ctx.locals.add(s.target.name);
+		ctx.varKinds.set(s.target.name, "unknown");
 	}
-	return [
-		`${ctx.indent}${localPrefix ? "local " : ""}${target} = ${applyCoerce(expr, s.coerce)}`,
-	];
+	return [`${ctx.indent}${target} = ${lhs} ${op} ${rhs}`];
+}
+
+function emitTarget(target: AssignTarget, ctx: EmitCtx): string {
+	switch (target.kind) {
+		case "Var":
+			return target.name;
+		case "Member":
+			return `${emitExpr(target.object, ctx)}.${target.property}`;
+		case "Index":
+			return `${emitExpr(target.object, ctx)}[${emitExpr(target.index, ctx)}]`;
+	}
 }
 
 function emitOutputBlock(raw: string, ctx: EmitCtx): string[] {
@@ -104,6 +103,8 @@ function emitStmt(s: Stmt, ctx: EmitCtx): string[] {
 	switch (s.kind) {
 		case "Assign":
 			return flushPending(ctx, emitAssignStmt(s, ctx));
+		case "CompoundAssign":
+			return flushPending(ctx, emitCompoundAssignStmt(s, ctx));
 		case "Output":
 			return flushPending(ctx, [
 				`${ctx.indent}_out[#_out + 1] = ${emitExpr(s.value, ctx)}`,
@@ -191,6 +192,18 @@ function emitStmt(s: Stmt, ctx: EmitCtx): string[] {
 				return {
 					pending,
 					head: `${ctx.indent}for ${idx} = 1, #${listRef} do\n${ctx.indent}${IND_STEP}local ${s.itemName} = ${listRef}[${idx}]`,
+					body: s.body,
+					tail: `${ctx.indent}end`,
+				};
+			}, ctx);
+		case "ForRange":
+			return emitLoopWithContinue(() => {
+				const start = emitExpr(s.start, ctx);
+				const end = emitExpr(s.end, ctx);
+				ctx.locals.add(s.varName);
+				return {
+					pending: flushPending(ctx, []),
+					head: `${ctx.indent}for ${s.varName} = ${start}, ${end} do`,
 					body: s.body,
 					tail: `${ctx.indent}end`,
 				};
@@ -350,6 +363,7 @@ function hasContinue(stmt: Stmt): boolean {
 			);
 		case "Lua":
 		case "ForIn":
+		case "ForRange":
 		case "While":
 		case "Repeat":
 			return false;
@@ -415,12 +429,23 @@ function exprUsesArg(e: Expr): boolean {
 	if (e.kind === "Binary") return exprUsesArg(e.left) || exprUsesArg(e.right);
 	if (e.kind === "Unary") return exprUsesArg(e.right);
 	if (e.kind === "Lambda") return exprUsesArg(e.body);
+	if (e.kind === "Coerce") return exprUsesArg(e.expr);
 	return false;
 }
 
 function stmtsUseArg(stmts: readonly Stmt[]): boolean {
 	for (const s of stmts) {
 		if (s.kind === "Assign") {
+			const t = s.target;
+			if (
+				(t.kind === "Member" && exprUsesArg(t.object)) ||
+				(t.kind === "Index" &&
+					(exprUsesArg(t.object) || exprUsesArg(t.index)))
+			)
+				return true;
+			if (exprUsesArg(s.value)) return true;
+		}
+		if (s.kind === "CompoundAssign") {
 			const t = s.target;
 			if (
 				(t.kind === "Member" && exprUsesArg(t.object)) ||
@@ -445,6 +470,10 @@ function stmtsUseArg(stmts: readonly Stmt[]): boolean {
 		if (
 			(s.kind === "ForIn" &&
 				(exprUsesArg(s.iterable) || stmtsUseArg(s.body))) ||
+			(s.kind === "ForRange" &&
+				(exprUsesArg(s.start) ||
+					exprUsesArg(s.end) ||
+					stmtsUseArg(s.body))) ||
 			(s.kind === "While" &&
 				(exprUsesArg(s.condition) || stmtsUseArg(s.body))) ||
 			(s.kind === "Repeat" &&
@@ -471,7 +500,10 @@ function stmtsUseOutput(stmts: readonly Stmt[]): boolean {
 			if (s.elseBody && stmtsUseOutput(s.elseBody)) return true;
 		}
 		if (
-			(s.kind === "ForIn" || s.kind === "While" || s.kind === "Repeat") &&
+			(s.kind === "ForIn" ||
+				s.kind === "ForRange" ||
+				s.kind === "While" ||
+				s.kind === "Repeat") &&
 			stmtsUseOutput(s.body)
 		)
 			return true;

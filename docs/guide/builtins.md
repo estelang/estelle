@@ -12,6 +12,7 @@ Built-ins and namespace roots recognized by the compiler.
 | Length                   | `len`                                                                                                                                                                  |
 | Lists                    | `push`, `pop`, `has`                                                                                                                                                   |
 | Padding                  | `padleft`, `padright`                                                                                                                                                  |
+| Defaults                 | `default`                                                                                                                                                              |
 | Page                     | `page`, `currentpage`                                                                                                                                                  |
 | Direct Scribunto globals | `addWarning`, `allToString`, `clone`, `getCurrentFrame`, `incrementExpensiveFunctionCount`, `isSubsting`, `loadData`, `loadJsonData`, `dumpObject`, `log`, `logObject` |
 
@@ -58,4 +59,10 @@ fnc main {
         output join(items, " | ")
     }
 }
+```
+
+`default` in a pipe:
+
+```este
+title = arg("title") | trim | default("Main Page")
 ```

@@ -36,6 +36,18 @@ fnc main {
 }
 ```
 
+## Import other modules
+
+```este
+import "Module:StringUtils" as str
+
+fnc main {
+    output str.clean(arg("text", ""))
+}
+```
+
+Without `as`, the alias defaults to the module name after `:`.
+
 ## Nested functions
 
 ```este

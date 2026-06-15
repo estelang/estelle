@@ -14,7 +14,13 @@ export type ValueKind =
 	| "site"
 	| "unknown";
 
-export type RuntimeHelper = "listConcat" | "has" | "padleft" | "padright";
+export type RuntimeHelper =
+	| "listConcat"
+	| "has"
+	| "padleft"
+	| "padright"
+	| "wikiBool"
+	| "default";
 
 export interface EmitCtx {
 	invokeScoped: boolean;

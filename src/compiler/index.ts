@@ -22,6 +22,7 @@ export type {
 	IfStmt,
 	IfBranch,
 	ForInStmt,
+	ForRangeStmt,
 	WhileStmt,
 	RepeatStmt,
 	BreakStmt,

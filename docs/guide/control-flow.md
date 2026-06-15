@@ -38,6 +38,14 @@ for key, value in data_map {
 }
 ```
 
+### Numeric range
+
+```este
+for i in 1..10 {
+    output "${i}"
+}
+```
+
 ### While / repeat
 
 ```este

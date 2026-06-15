@@ -18,6 +18,7 @@ export const BUILTIN_CALL_NAMES = new Set([
 	"push",
 	"pop",
 	"has",
+	"default",
 
 	"page",
 	"currentpage",

@@ -18,3 +18,19 @@ export function getLiteralValue(e: Expr): string | number | boolean | null {
 export function isTruthy(e: Expr): boolean {
 	return e.kind === "Nil" ? false : e.kind === "Bool" ? e.value : true;
 }
+
+export function wikiTruthyLiteral(e: Expr): boolean | null {
+	if (e.kind === "Bool") return e.value;
+	if (e.kind === "Nil") return false;
+	if (e.kind === "String") {
+		const s = e.value.trim().toLowerCase();
+		return (
+			s === "true" ||
+			s === "1" ||
+			s === "yes" ||
+			s === "y" ||
+			s === "on"
+		);
+	}
+	return null;
+}

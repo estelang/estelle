@@ -1,5 +1,6 @@
 import { TK, type Token } from "../lexer/index.ts";
 import type { Expr } from "../ast/index.ts";
+import type { EstelleType } from "../ast/program.ts";
 
 export interface ExprParseContext {
 	cur(): Token;
@@ -27,10 +28,34 @@ export function parsePostfixWithContext(
 	return parsePostfix(ctx, base);
 }
 
+function parseTypeKeyword(ctx: ExprParseContext): EstelleType | null {
+	switch (ctx.peek()) {
+		case TK.StrType:
+			ctx.advance();
+			return "str";
+		case TK.NumType:
+			ctx.advance();
+			return "num";
+		case TK.BoolType:
+			ctx.advance();
+			return "bool";
+		case TK.ListType:
+			ctx.advance();
+			return "list";
+		case TK.MapType:
+			ctx.advance();
+			return "map";
+		default:
+			return null;
+	}
+}
+
 function parsePipe(ctx: ExprParseContext): Expr {
 	let expr = parseOr(ctx);
 	while (ctx.eat(TK.Pipe)) {
 		const name = ctx.expectName('Expected function name after "|"').value;
+		if (name === "default" && ctx.peek() !== TK.LParen)
+			ctx.err('default pipe requires a value: | default("...")');
 		const callee: Expr = { kind: "Ident", name };
 		const args: Expr[] = [expr];
 		if (ctx.eat(TK.LParen)) {
@@ -199,7 +224,13 @@ function parseUnary(ctx: ExprParseContext): Expr {
 		return { kind: "Unary", op: "not", right: parseUnary(ctx) };
 	if (ctx.eat(TK.Minus))
 		return { kind: "Unary", op: "-", right: parseUnary(ctx) };
-	return parsePostfix(ctx, parsePrimary(ctx));
+	let expr = parsePostfix(ctx, parsePrimary(ctx));
+	if (ctx.eat(TK.As)) {
+		const type = parseTypeKeyword(ctx);
+		if (type === null) ctx.err('Expected type after "as"');
+		else expr = { kind: "Coerce", expr, type };
+	}
+	return expr;
 }
 
 function parsePrimary(ctx: ExprParseContext): Expr {
@@ -302,6 +333,10 @@ function parsePrimary(ctx: ExprParseContext): Expr {
 		case TK.MapType:
 			ctx.advance();
 			return { kind: "Ident", name: tok.value };
+		case TK.Question:
+			ctx.err('Unexpected "?"');
+			ctx.advance();
+			return { kind: "Nil" };
 		default:
 			ctx.err(`Unexpected token "${tok.value}" in expression`);
 			ctx.advance();

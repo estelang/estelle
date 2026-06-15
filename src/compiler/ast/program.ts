@@ -17,6 +17,7 @@ export interface ImportDecl {
 export interface Param {
 	readonly name: string;
 	readonly type: EstelleType;
+	readonly nullable: boolean;
 }
 
 export interface FncDecl {

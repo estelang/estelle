@@ -5,6 +5,8 @@ const RUNTIME_HELPER_NAMES: Readonly<Record<RuntimeHelper, string>> = {
 	has: "__estelle_has",
 	padleft: "__estelle_padleft",
 	padright: "__estelle_padright",
+	wikiBool: "__estelle_bool",
+	default: "__estelle_default",
 };
 
 export const RUNTIME_HELPER_ORDER: readonly RuntimeHelper[] = [
@@ -12,6 +14,8 @@ export const RUNTIME_HELPER_ORDER: readonly RuntimeHelper[] = [
 	"has",
 	"padleft",
 	"padright",
+	"wikiBool",
+	"default",
 ];
 
 export const HOT_GLOBAL_BY_BUILTIN: Readonly<Record<string, string>> = {
@@ -110,6 +114,22 @@ export function emitRuntimeHelper(helper: RuntimeHelper): string {
 				"\tlocal __need = __n - __ulen(__s)",
 				"\tif __need <= 0 then return __s end",
 				"\treturn __s .. __rep(__c, __need)",
+				"end",
+			].join("\n");
+		case "wikiBool":
+			return [
+				"local function __estelle_bool(v)",
+				'\tif type(v) == "boolean" then return v end',
+				"\tif v == nil then return false end",
+				"\tlocal s = mw.ustring.lower(mw.text.trim(tostring(v)))",
+				'\treturn s == "true" or s == "1" or s == "yes" or s == "y" or s == "on"',
+				"end",
+			].join("\n");
+		case "default":
+			return [
+				"local function __estelle_default(v, d)",
+				'\tif v == nil or v == "" then return d end',
+				"\treturn v",
 				"end",
 			].join("\n");
 	}

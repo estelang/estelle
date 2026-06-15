@@ -1,3 +1,5 @@
+import type { EstelleType } from "./program.ts";
+
 export type Expr =
 	| { readonly kind: "String"; readonly value: string }
 	| { readonly kind: "Number"; readonly value: number }
@@ -53,4 +55,9 @@ export type Expr =
 			readonly kind: "Lambda";
 			readonly params: readonly string[];
 			readonly body: Expr;
+	  }
+	| {
+			readonly kind: "Coerce";
+			readonly expr: Expr;
+			readonly type: EstelleType;
 	  };

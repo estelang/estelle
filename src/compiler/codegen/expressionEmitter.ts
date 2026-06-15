@@ -3,6 +3,7 @@ import { lex } from "../lexer/index.ts";
 import { parseExpression } from "../parser/index.ts";
 import { emitGlobalCall, useRuntimeHelper } from "./runtime.ts";
 import type { EmitCtx, ValueKind } from "./types.ts";
+import { mapTypeToKind } from "./types.ts";
 
 const NAMESPACE_IDENTIFIERS: Readonly<Record<string, string>> = {
 	hash: "mw.hash",
@@ -102,6 +103,8 @@ export function inferExprKind(e: Expr, ctx: EmitCtx): ValueKind {
 			return "bool";
 		case "Nil":
 			return "unknown";
+		case "Coerce":
+			return mapTypeToKind(e.type);
 		case "List":
 			return "list";
 		case "Map":
@@ -361,6 +364,8 @@ function emitBuiltinCall(
 			return `table.remove(${a(0)})`;
 		case "has":
 			return `${useRuntimeHelper(ctx, "has")}(${a(0)}, ${a(1)})`;
+		case "default":
+			return `${useRuntimeHelper(ctx, "default")}(${a(0)}, ${a(1)})`;
 
 		case "padleft": {
 			const fill = args.length > 2 ? a(2) : "nil";
@@ -429,6 +434,8 @@ function isMethodReceiverParenRequired(e: Expr): boolean {
 		case "Unary":
 			return true;
 		case "Lambda":
+			return true;
+		case "Coerce":
 			return true;
 		default:
 			return false;
@@ -573,6 +580,13 @@ export function emitExpr(e: Expr, ctx: EmitCtx): string {
 			return ps.length === 0
 				? `function() return ${b} end`
 				: `function(${plist}) return ${b} end`;
+		}
+		case "Coerce": {
+			const inner = emitExpr(e.expr, ctx);
+			if (e.type === "bool")
+				return `${useRuntimeHelper(ctx, "wikiBool")}(${inner})`;
+			if (e.type === "num") return `tonumber(${inner})`;
+			return inner;
 		}
 	}
 }

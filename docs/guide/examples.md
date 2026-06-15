@@ -16,9 +16,7 @@ fnc main {
 
 ```este
 fnc main {
-    flag_value = arg("collapsed", "no") | trim | lower
-    is_collapsed = (flag_value == "yes" or flag_value == "y" or flag_value == "1" or flag_value == "true")
-    if is_collapsed {
+    if arg("collapsed", "no") as bool {
         output "State: collapsed"
     } else {
         output "State: expanded"
@@ -40,19 +38,16 @@ fnc main {
 }
 ```
 
-## 4) Expand template via frame method
+## 4) Expand template via frame
 
 ```este
 fnc main {
     page_name = arg("page", "Main Page")
     icon_size = arg("size", "22x20px")
-    rendered = ""
-    lua {
-        rendered = frame:expandTemplate{
-            title = "Icon",
-            args = { page = page_name, size = icon_size }
-        }
-    }
+    rendered = frame:expandTemplate({
+        title: "Icon",
+        args: { page: page_name, size: icon_size },
+    })
     output rendered
 }
 ```
@@ -99,5 +94,18 @@ fnc main {
     }
 
     output { |} }
+}
+```
+
+## 7) Build HTML with join
+
+```este
+pub fnc badge(label str, value str) str {
+    parts = ['<span class="badge">']
+    push(parts, text.nowiki(label))
+    push(parts, ": ")
+    push(parts, text.nowiki(value))
+    push(parts, "</span>")
+    return join(parts, "")
 }
 ```

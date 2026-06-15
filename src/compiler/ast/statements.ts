@@ -1,15 +1,17 @@
 import type { Expr } from "./expressions.ts";
-import type { FncDecl, EstelleType } from "./program.ts";
+import type { FncDecl } from "./program.ts";
 
 export type Stmt =
 	| NestFncStmt
 	| OutputStmt
 	| OutputBlockStmt
 	| AssignStmt
+	| CompoundAssignStmt
 	| ReturnStmt
 	| ExprStmt
 	| IfStmt
 	| ForInStmt
+	| ForRangeStmt
 	| WhileStmt
 	| RepeatStmt
 	| BreakStmt
@@ -21,7 +23,12 @@ export interface AssignStmt {
 	readonly kind: "Assign";
 	readonly target: AssignTarget;
 	readonly value: Expr;
-	readonly coerce: EstelleType | null;
+}
+
+export interface CompoundAssignStmt {
+	readonly kind: "CompoundAssign";
+	readonly target: AssignTarget;
+	readonly value: Expr;
 }
 
 export type AssignTarget =
@@ -74,6 +81,14 @@ export interface ForInStmt {
 	readonly indexName: string | null;
 	readonly itemName: string;
 	readonly iterable: Expr;
+	readonly body: readonly Stmt[];
+}
+
+export interface ForRangeStmt {
+	readonly kind: "ForRange";
+	readonly varName: string;
+	readonly start: Expr;
+	readonly end: Expr;
 	readonly body: readonly Stmt[];
 }
 

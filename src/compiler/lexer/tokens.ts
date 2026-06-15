@@ -55,6 +55,8 @@ export const TK = {
 	Star: 51,
 	Slash: 52,
 	Percent: 53,
+	Question: 57,
+	PlusEq: 59,
 	Arrow: 58,
 	Eof: 54,
 } as const;

@@ -206,15 +206,22 @@ class Parser {
 						`Parameter name "${pname}" is reserved for compiler internals.`,
 					);
 				const ptype = this.parseType();
-				if (ptype === null)
+				if (ptype === null) {
 					this.err(`Expected type for parameter "${pname}"`);
-				params.push({ name: pname, type: ptype ?? "str" });
+				} else {
+					params.push({
+						name: pname,
+						type: ptype.type,
+						nullable: ptype.nullable,
+					});
+				}
 				if (!this.eat(TK.Comma)) break;
 			}
 			this.expect(TK.RParen, 'Expected ")"');
 		}
 
-		const returnType = this.parseType();
+		const returnParsed = this.parseType();
+		const returnType = returnParsed?.type ?? null;
 		this.expect(TK.LBrace, 'Expected "{"');
 		const body = this.parseBody();
 		this.expect(TK.RBrace, 'Expected "}"');
@@ -222,26 +229,33 @@ class Parser {
 		return { kind: "Fnc", pub, name, params, returnType, body };
 	}
 
-	private parseType(): EstelleType | null {
+	private parseType(): { type: EstelleType; nullable: boolean } | null {
+		let type: EstelleType | null = null;
 		switch (this.peek()) {
 			case TK.StrType:
 				this.advance();
-				return "str";
+				type = "str";
+				break;
 			case TK.NumType:
 				this.advance();
-				return "num";
+				type = "num";
+				break;
 			case TK.BoolType:
 				this.advance();
-				return "bool";
+				type = "bool";
+				break;
 			case TK.ListType:
 				this.advance();
-				return "list";
+				type = "list";
+				break;
 			case TK.MapType:
 				this.advance();
-				return "map";
+				type = "map";
+				break;
 			default:
 				return null;
 		}
+		return { type, nullable: this.eat(TK.Question) };
 	}
 
 	private parseBody(): Stmt[] {
@@ -286,11 +300,6 @@ class Parser {
 			});
 			if (this.eat(TK.Eq)) {
 				const value = this.parseExpr();
-				let coerce: EstelleType | null = null;
-				if (this.eat(TK.As)) {
-					coerce = this.parseType();
-					if (coerce === null) this.err('Expected type after "as"');
-				}
 				const target = this.toAssignTarget(left);
 				if (
 					target?.kind === "Var" &&
@@ -318,7 +327,20 @@ class Parser {
 					});
 					return null;
 				}
-				return { kind: "Assign", target, value, coerce };
+				return { kind: "Assign", target, value };
+			}
+			if (this.eat(TK.PlusEq)) {
+				const value = this.parseExpr();
+				const target = this.toAssignTarget(left);
+				if (!target) {
+					this.diags.push({
+						severity: "error",
+						message: "Invalid assignment target",
+						span: { start: tok.start, end: tok.end },
+					});
+					return null;
+				}
+				return { kind: "CompoundAssign", target, value };
 			}
 			return { kind: "ExprStmt", expr: left };
 		}
@@ -388,6 +410,15 @@ class Parser {
 		this.expect(TK.LBrace, 'Expected "{" after for loop header');
 		const body = this.parseBody();
 		this.expect(TK.RBrace, 'Expected "}" after for loop body');
+		if (!indexName && iterable.kind === "Binary" && iterable.op === "..") {
+			return {
+				kind: "ForRange",
+				varName: itemName,
+				start: iterable.left,
+				end: iterable.right,
+				body,
+			};
+		}
 		return { kind: "ForIn", indexName, itemName, iterable, body };
 	}
 

@@ -5,7 +5,12 @@ import type {
 	Expr,
 	AssignTarget,
 } from "../ast/index.ts";
-import { getLiteralValue, isLiteral, isTruthy } from "./literals.ts";
+import {
+	getLiteralValue,
+	isLiteral,
+	isTruthy,
+	wikiTruthyLiteral,
+} from "./literals.ts";
 
 export function optimize(program: Program): Program {
 	return {
@@ -60,6 +65,9 @@ function optimizeFnc(fnc: FncDecl): FncDecl {
 				e.params.forEach(markIneligible);
 				scanExpr(e.body);
 				break;
+			case "Coerce":
+				scanExpr(e.expr);
+				break;
 		}
 	}
 
@@ -74,6 +82,19 @@ function optimizeFnc(fnc: FncDecl): FncDecl {
 					const name = s.target.name;
 					assignCount.set(name, (assignCount.get(name) || 0) + 1);
 					if (isLiteral(s.value)) constants.set(name, s.value);
+				}
+				scanExpr(s.value);
+				if (s.target.kind === "Index") {
+					scanExpr(s.target.object);
+					scanExpr(s.target.index);
+				}
+				if (s.target.kind === "Member") scanExpr(s.target.object);
+				break;
+			case "CompoundAssign":
+				if (s.target.kind === "Var") {
+					const name = s.target.name;
+					assignCount.set(name, (assignCount.get(name) || 0) + 1);
+					constants.delete(name);
 				}
 				scanExpr(s.value);
 				if (s.target.kind === "Index") {
@@ -102,6 +123,12 @@ function optimizeFnc(fnc: FncDecl): FncDecl {
 				if (s.indexName) markIneligible(s.indexName);
 				markIneligible(s.itemName);
 				scanExpr(s.iterable);
+				scanBlock(s.body);
+				break;
+			case "ForRange":
+				markIneligible(s.varName);
+				scanExpr(s.start);
+				scanExpr(s.end);
 				scanBlock(s.body);
 				break;
 			case "While":
@@ -186,6 +213,12 @@ function optimizeStmt(
 				target: optimizeAssignTarget(stmt.target, env),
 				value: optimizeExpr(stmt.value, env),
 			};
+		case "CompoundAssign":
+			return {
+				...stmt,
+				target: optimizeAssignTarget(stmt.target, env),
+				value: optimizeExpr(stmt.value, env),
+			};
 		case "Output":
 			return { ...stmt, value: optimizeExpr(stmt.value, env) };
 		case "Return":
@@ -225,6 +258,13 @@ function optimizeStmt(
 			return {
 				...stmt,
 				iterable: optimizeExpr(stmt.iterable, env),
+				body: optimizeBlock(stmt.body, env),
+			};
+		case "ForRange":
+			return {
+				...stmt,
+				start: optimizeExpr(stmt.start, env),
+				end: optimizeExpr(stmt.end, env),
 				body: optimizeBlock(stmt.body, env),
 			};
 		case "While": {
@@ -497,6 +537,17 @@ function optimizeExpr(e: Expr, env: Map<string, Expr>): Expr {
 						value: optimizedArgs[0]!.items.length,
 					};
 				}
+				if (
+					name === "default" &&
+					optimizedArgs.length === 2 &&
+					isLiteral(optimizedArgs[0]!) &&
+					isLiteral(optimizedArgs[1]!)
+				) {
+					const v = getLiteralValue(optimizedArgs[0]!);
+					if (v === null || v === "")
+						return optimizedArgs[1]!;
+					return optimizedArgs[0]!;
+				}
 			}
 
 			return { ...e, callee: optimizedCallee, args: optimizedArgs };
@@ -520,6 +571,22 @@ function optimizeExpr(e: Expr, env: Map<string, Expr>): Expr {
 			};
 		case "Lambda":
 			return { ...e, body: optimizeExpr(e.body, env) };
+		case "Coerce": {
+			const inner = optimizeExpr(e.expr, env);
+			if (e.type === "bool") {
+				const t = wikiTruthyLiteral(inner);
+				if (t !== null) return { kind: "Bool", value: t };
+			}
+			if (e.type === "num" && isLiteral(inner)) {
+				const v = getLiteralValue(inner);
+				if (typeof v === "number") return { kind: "Number", value: v };
+				if (typeof v === "string") {
+					const n = Number(v);
+					if (!Number.isNaN(n)) return { kind: "Number", value: n };
+				}
+			}
+			return { ...e, expr: inner };
+		}
 		default:
 			return e;
 	}

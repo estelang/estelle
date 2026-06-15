@@ -233,14 +233,19 @@ describe("variables and coercions", () => {
 		expect(lua).toContain("local c = tonumber(_arg(");
 	});
 
-	test("as bool single-evaluates the expression", () => {
+	test("as bool uses wiki truthy helper", () => {
 		const lua = compile(
-			`fnc main { f = arg("f", "1") as bool output { \${f} } }`,
+			`fnc main { f = arg("f", "yes") as bool output { \${f} } }`,
 		);
-		expect(lua).toMatch(/local __estelle_coerce_\d+ = _arg\(/);
-		expect(lua).toMatch(
-			/local f = \(__estelle_coerce_\d+ == "true" or __estelle_coerce_\d+ == "1"\)/,
+		expect(lua).toContain("__estelle_bool");
+		expect(lua).toContain('local f = __estelle_bool(_arg("f", "yes"))');
+	});
+
+	test("as bool in if condition", () => {
+		const lua = compile(
+			`fnc main { if arg("f", "y") as bool { output { on } } }`,
 		);
+		expect(lua).toContain("if __estelle_bool(_arg(");
 	});
 });
 
@@ -403,6 +408,11 @@ describe("loops", () => {
 			`fnc main { items = arg("x") for item in items { output { \${item} } } }`,
 		);
 		expect(lua).toContain("for __i");
+	});
+
+	test("for range", () => {
+		const lua = compile(`fnc main { for i in 1..3 { output { \${i} } } }`);
+		expect(lua).toContain("for i = 1, 3 do");
 	});
 
 	test("while", () => {
@@ -929,8 +939,8 @@ fnc main {
 fnc main {
     headers = ["Name", "Role", "Edits"]
     rows = [
-        {name: "Alice", role: "Admin", edits: "1200"},
-        {name: "Bob", role: "Editor", edits: "340"}
+        {name: "Alice", role: "Admin", edits: "7777"},
+        {name: "Amamiya", role: "Editor", edits: "444"}
     ]
     output {
         {| class="wikitable"
@@ -951,6 +961,62 @@ fnc main {
 		expect(lua).toContain("for __i1 = 1, #headers do");
 		expect(lua).toContain("for __i2 = 1, #rows do");
 		expect(lua).toContain("row.name");
+	});
+});
+
+describe("language features", () => {
+	test("default pipe", () => {
+		const lua = compile(
+			`fnc main { t = arg("title") | default("Main Page") output { \${t} } }`,
+		);
+		expect(lua).toContain("__estelle_default");
+		expect(lua).toContain('"Main Page"');
+	});
+
+	test("+= preserves return after loop", () => {
+		const lua = compile(
+			`fnc main { out = "" for i in 1..3 { out += "x" } return out }`,
+		);
+		expect(lua).toContain('out = out .. "x"');
+		expect(lua).toContain("return out");
+	});
+
+	test("literal as bool folds", () => {
+		const lua = compile(
+			`fnc main { if ("yes") as bool { output { on } } }`,
+		);
+		expect(lua).not.toContain("__estelle_bool");
+		expect(lua).toContain('"on"');
+	});
+
+	test("+= string concat", () => {
+		const lua = compile(`fnc main { out = "" out += "a" return out }`);
+		expect(lua).toContain('out = out .. "a"');
+	});
+
+	test("+= number add", () => {
+		const lua = compile(`fnc main { n = 1 n += 2 output { \${n} } }`);
+		expect(lua).toContain("n = n + 2");
+	});
+
+	test("nullable type marker parses", () => {
+		const r = transpile(
+			`fnc f(x str?) str { return x } fnc main { output { ok } }`,
+		);
+		expect(r.lua).not.toBeNull();
+	});
+
+	test("bare ? is rejected", () => {
+		const r = transpile(`fnc main { x = ? output { x } }`);
+		expect(r.lua).toBeNull();
+		expect(
+			r.diagnostics.some((d) => /Unexpected "\?"/i.test(d.message)),
+		).toBe(true);
+	});
+
+	test("default pipe without arg is rejected", () => {
+		const r = transpile(`fnc main { x = arg("t") | default output { x } }`);
+		expect(r.lua).toBeNull();
 	});
 });
 

@@ -40,11 +40,13 @@ export function lex(src: string): Token[] {
 
 		if (c >= "0" && c <= "9") {
 			let val = c;
-			while (
-				i < n &&
-				((src[i] >= "0" && src[i] <= "9") || src[i] === ".")
-			)
-				val += src[i++];
+			while (i < n) {
+				const ch = src[i]!;
+				if (ch >= "0" && ch <= "9") val += src[i++];
+				else if (ch === "." && src[i + 1] !== "." && !val.includes("."))
+					val += src[i++];
+				else break;
+			}
 			tokens.push({ type: TK.Number, value: val, start, end: i });
 			continue;
 		}
@@ -127,7 +129,19 @@ export function lex(src: string): Token[] {
 				tokens.push({ type: TK.Percent, value: c, start, end: i });
 				break;
 			case "+":
+				if (src[i] === "=") {
+					tokens.push({
+						type: TK.PlusEq,
+						value: "+=",
+						start,
+						end: ++i,
+					});
+					break;
+				}
 				tokens.push({ type: TK.Plus, value: c, start, end: i });
+				break;
+			case "?":
+				tokens.push({ type: TK.Question, value: c, start, end: i });
 				break;
 			case "-":
 				tokens.push({ type: TK.Minus, value: c, start, end: i });

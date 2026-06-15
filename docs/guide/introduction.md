@@ -24,6 +24,7 @@ fnc main {
 - Lists/maps
 - Pipes (`value | trim | lower`)
 - `try` / `catch`
+- `import` for other modules
 - `lua { ... }` escape blocks
 
 Continue with:
