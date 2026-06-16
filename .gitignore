@@ -27,3 +27,6 @@ docs/.vitepress/cache/
 
 spec.md*
 ess.md*
+
+estelle-*
+*-estelle
